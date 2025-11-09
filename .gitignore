@@ -1,0 +1,45 @@
+# Binaries
+kestrel
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Go workspace file
+go.work
+
+# Build cache
+.cache/
+tmp/
+
+# Environment files
+.env
+.env.local
+
+# Data directories
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Certificate storage
+.certmagic/
+certs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

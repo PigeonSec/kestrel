@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  kestrel:
+    build: .
+    container_name: kestrel
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - LISTEN_ADDR=:8080
+      - STORAGE_TYPE=valkey
+      - VALKEY_ADDR=valkey:6379
+      - SQLITE_PATH=/data/kestrel.db
+      - API_KEY_PREFIX=kestrel_
+      - ENABLE_VALIDATION=true
+      # Uncomment for production with external key provider:
+      # - KEY_PROVIDER_URL=https://example.com/api/subscribers
+      # - KEY_REFRESH_INTERVAL=10m
+      # Uncomment for TLS/HTTPS:
+      # - ENABLE_TLS=true
+      # - TLS_DOMAIN=feeds.example.com
+      # - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./data:/data
+      - ./certs:/.certmagic
+    depends_on:
+      - valkey
+
+  valkey:
+    image: valkey/valkey:7
+    container_name: kestrel-valkey
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    command: valkey-server --appendonly yes
+
+volumes:
+  valkey-data:

@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.md
+docs/
+data/
+certs/
+.certmagic/
+*.db
+.env
+kestrel
