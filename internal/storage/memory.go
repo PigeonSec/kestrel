@@ -7,18 +7,20 @@ import (
 
 // MemoryStorage is an in-memory implementation of Storage
 type MemoryStorage struct {
-	mu      sync.RWMutex
-	events  map[string][]byte
-	feeds   map[string]map[string]bool // feed -> domain set
-	kvStore map[string][]byte
+	mu       sync.RWMutex
+	events   map[string][]byte
+	feeds    map[string]map[string]bool   // feed -> domain set
+	feedMeta map[string]map[string]string // feed -> metadata map
+	kvStore  map[string][]byte
 }
 
 // NewMemoryStorage creates a new in-memory storage
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		events:  make(map[string][]byte),
-		feeds:   make(map[string]map[string]bool),
-		kvStore: make(map[string][]byte),
+		events:   make(map[string][]byte),
+		feeds:    make(map[string]map[string]bool),
+		feedMeta: make(map[string]map[string]string),
+		kvStore:  make(map[string][]byte),
 	}
 }
 
@@ -80,6 +82,29 @@ func (m *MemoryStorage) RemoveDomain(ctx context.Context, feed, domain string) e
 		delete(m.feeds[feed], domain)
 	}
 	return nil
+}
+
+func (m *MemoryStorage) SetFeedMeta(ctx context.Context, feed, key, value string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.feedMeta[feed] == nil {
+		m.feedMeta[feed] = make(map[string]string)
+	}
+	m.feedMeta[feed][key] = value
+	return nil
+}
+
+func (m *MemoryStorage) GetFeedMeta(ctx context.Context, feed, key string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.feedMeta[feed] == nil {
+		return "", ErrNotFound
+	}
+	value, ok := m.feedMeta[feed][key]
+	if !ok {
+		return "", ErrNotFound
+	}
+	return value, nil
 }
 
 func (m *MemoryStorage) Set(ctx context.Context, key string, value []byte) error {

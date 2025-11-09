@@ -60,12 +60,6 @@ func (h *AdminHandler) GenerateAPIKey(c *gin.Context) {
 	})
 }
 
-// ListAccounts handles GET /api/admin/accounts
-func (h *AdminHandler) ListAccounts(c *gin.Context) {
-	accounts := h.keyStore.ListAccounts()
-	c.JSON(http.StatusOK, gin.H{"accounts": accounts})
-}
-
 // AddAccount handles POST /api/admin/accounts
 func (h *AdminHandler) AddAccount(c *gin.Context) {
 	var account auth.Account

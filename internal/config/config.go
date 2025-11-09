@@ -29,6 +29,7 @@ type Config struct {
 
 	// API settings
 	APIKeyPrefix string
+	AdminAPIKey  string // Optional admin API key set via env or CLI
 
 	// Feature flags
 	EnableValidation bool
@@ -52,6 +53,7 @@ func Load() *Config {
 		SQLitePath:         getEnv("SQLITE_PATH", "./kestrel.db"),
 
 		APIKeyPrefix: getEnv("API_KEY_PREFIX", "kestrel_"),
+		AdminAPIKey:  getEnv("ADMIN_API_KEY", ""),
 
 		EnableValidation: getBoolEnv("ENABLE_VALIDATION", true),
 	}

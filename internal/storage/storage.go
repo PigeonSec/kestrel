@@ -21,6 +21,10 @@ type Storage interface {
 	GetDomains(ctx context.Context, feed string) ([]string, error)
 	RemoveDomain(ctx context.Context, feed, domain string) error
 
+	// Feed metadata
+	SetFeedMeta(ctx context.Context, feed, key, value string) error
+	GetFeedMeta(ctx context.Context, feed, key string) (string, error)
+
 	// Generic key-value
 	Set(ctx context.Context, key string, value []byte) error
 	Get(ctx context.Context, key string) ([]byte, error)

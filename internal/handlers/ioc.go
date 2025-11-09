@@ -13,10 +13,11 @@ import (
 
 // IOCRequest represents the request to submit a new IOC
 type IOCRequest struct {
-	Domain   string `json:"domain" binding:"required"`
-	Category string `json:"category" binding:"required"`
-	Comment  string `json:"comment"`
-	Feed     string `json:"feed" binding:"required"`
+	Domain      string `json:"domain" binding:"required"`
+	Category    string `json:"category" binding:"required"`
+	Comment     string `json:"comment"`
+	Feed        string `json:"feed" binding:"required"`
+	AccessLevel string `json:"access_level"` // "free" or "paid" (default: "paid")
 }
 
 // IOCHandler handles IOC ingestion
@@ -57,8 +58,15 @@ func (h *IOCHandler) PostIOC(c *gin.Context) {
 		validationMode = validation.ParseValidationMode(validateMode)
 	}
 
-	// Perform validation if requested
-	if validationMode != validation.ValidationNone {
+	// Perform validation if requested or if globally enabled
+	shouldValidate := validationMode != validation.ValidationNone
+	if !shouldValidate && h.validator != nil {
+		// Check if validation is globally enabled
+		shouldValidate = true
+		validationMode = validation.ValidationDNS // Default to DNS validation
+	}
+
+	if shouldValidate && h.validator != nil {
 		result, err := h.validator.Validate(ctx, req.Domain, validationMode)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -69,8 +77,9 @@ func (h *IOCHandler) PostIOC(c *gin.Context) {
 		}
 
 		if !result.Valid {
+			// Domain failed validation - do NOT add to feed
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error":             "domain validation failed",
+				"error":             "domain validation failed - not added to feed",
 				"domain":            result.Domain,
 				"validation_result": result,
 			})
@@ -87,16 +96,29 @@ func (h *IOCHandler) PostIOC(c *gin.Context) {
 		return
 	}
 
+	// Determine access level (default to paid if not specified)
+	accessLevel := req.AccessLevel
+	if accessLevel == "" {
+		accessLevel = "paid"
+	}
+
 	// Add domain to feed
 	if err := h.storage.AddDomain(ctx, req.Feed, req.Domain); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add domain to feed"})
 		return
 	}
 
+	// Set feed access level metadata
+	if err := h.storage.SetFeedMeta(ctx, req.Feed, "access_level", accessLevel); err != nil {
+		// Log but don't fail - metadata is not critical
+		c.Header("X-Warning", "Failed to set feed metadata")
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"status":   "stored",
-		"event_id": eventID,
-		"domain":   req.Domain,
-		"feed":     req.Feed,
+		"status":       "stored",
+		"event_id":     eventID,
+		"domain":       req.Domain,
+		"feed":         req.Feed,
+		"access_level": accessLevel,
 	})
 }

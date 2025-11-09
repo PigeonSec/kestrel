@@ -20,6 +20,34 @@ func AuthMiddleware(keyStore *auth.KeyStore) gin.HandlerFunc {
 	}
 }
 
+// AdminAuthMiddleware creates authentication middleware that requires admin privileges
+func AdminAuthMiddleware(keyStore *auth.KeyStore) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKey := extractAPIKey(c)
+		if apiKey == "" || !keyStore.IsValid(apiKey) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		// Check if the account has admin privileges
+		account, ok := keyStore.GetAccount(apiKey)
+		if !ok {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		if account.Plan != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "admin privileges required for this operation",
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
 // extractAPIKey extracts the API key from various sources
 func extractAPIKey(c *gin.Context) string {
 	// Check X-API-Key header

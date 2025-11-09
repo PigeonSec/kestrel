@@ -60,6 +60,18 @@ func (v *ValkeyStorage) RemoveDomain(ctx context.Context, feed, domain string) e
 	return v.client.SRem(ctx, "misp:feed:"+feed, domain).Err()
 }
 
+func (v *ValkeyStorage) SetFeedMeta(ctx context.Context, feed, key, value string) error {
+	return v.client.HSet(ctx, "misp:feed:meta:"+feed, key, value).Err()
+}
+
+func (v *ValkeyStorage) GetFeedMeta(ctx context.Context, feed, key string) (string, error) {
+	value, err := v.client.HGet(ctx, "misp:feed:meta:"+feed, key).Result()
+	if err == redis.Nil {
+		return "", ErrNotFound
+	}
+	return value, err
+}
+
 func (v *ValkeyStorage) Set(ctx context.Context, key string, value []byte) error {
 	return v.client.Set(ctx, key, value, 0).Err()
 }
