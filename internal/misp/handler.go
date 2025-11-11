@@ -130,3 +130,30 @@ func (h *Handler) LoadEventsFromStorage(ctx context.Context) error {
 	h.updateManifest()
 	return nil
 }
+
+// GetAllEvents returns all MISP events as a JSON array
+func (h *Handler) GetAllEvents(ctx context.Context) []byte {
+	var events []json.RawMessage
+
+	h.eventCache.Range(func(key, value interface{}) bool {
+		data := value.([]byte)
+		events = append(events, json.RawMessage(data))
+		return true
+	})
+
+	// If no cached events, try loading from storage
+	if len(events) == 0 {
+		eventIDs, err := h.storage.ListEventIDs(ctx)
+		if err == nil {
+			for _, id := range eventIDs {
+				data, err := h.storage.GetEvent(ctx, id)
+				if err == nil {
+					events = append(events, json.RawMessage(data))
+				}
+			}
+		}
+	}
+
+	result, _ := json.Marshal(events)
+	return result
+}

@@ -31,6 +31,11 @@ type Config struct {
 	APIKeyPrefix string
 	AdminAPIKey  string // Optional admin API key set via env or CLI
 
+	// Admin UI JWT settings
+	JWTSecret     string
+	AdminUsername string
+	AdminPassword string
+
 	// Feature flags
 	EnableValidation bool
 }
@@ -54,6 +59,10 @@ func Load() *Config {
 
 		APIKeyPrefix: getEnv("API_KEY_PREFIX", "kestrel_"),
 		AdminAPIKey:  getEnv("ADMIN_API_KEY", ""),
+
+		JWTSecret:     getEnv("JWT_SECRET", "change-me-in-production"),
+		AdminUsername: getEnv("ADMIN_USERNAME", "admin"),
+		AdminPassword: getEnv("ADMIN_PASSWORD", "admin123"),
 
 		EnableValidation: getBoolEnv("ENABLE_VALIDATION", true),
 	}

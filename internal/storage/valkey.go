@@ -60,6 +60,27 @@ func (v *ValkeyStorage) RemoveDomain(ctx context.Context, feed, domain string) e
 	return v.client.SRem(ctx, "misp:feed:"+feed, domain).Err()
 }
 
+func (v *ValkeyStorage) ListFeeds(ctx context.Context) ([]string, error) {
+	keys, err := v.client.Keys(ctx, "misp:feed:*").Result()
+	if err != nil {
+		return nil, err
+	}
+
+	feeds := make([]string, 0, len(keys))
+	for _, key := range keys {
+		// Skip metadata keys
+		if len(key) > 14 && key[:14] == "misp:feed:meta:" {
+			continue
+		}
+		// Extract feed name from key (remove "misp:feed:" prefix)
+		if len(key) > 10 {
+			feedName := key[10:]
+			feeds = append(feeds, feedName)
+		}
+	}
+	return feeds, nil
+}
+
 func (v *ValkeyStorage) SetFeedMeta(ctx context.Context, feed, key, value string) error {
 	return v.client.HSet(ctx, "misp:feed:meta:"+feed, key, value).Err()
 }

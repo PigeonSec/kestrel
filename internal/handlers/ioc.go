@@ -262,3 +262,153 @@ func (h *IOCHandler) generateStixIndicator(ctx context.Context, req IOCRequest) 
 
 	return stixID, nil
 }
+
+// ListIOCs handles GET /api/iocs
+func (h *IOCHandler) ListIOCs(c *gin.Context) {
+	ctx := context.Background()
+	feed := c.Query("feed")
+
+	// Build IOC list with feed mapping
+	type iocWithFeed struct {
+		value string
+		feed  string
+	}
+
+	var iocsToProcess []iocWithFeed
+
+	if feed != "" {
+		// Get domains for specific feed
+		domains, err := h.storage.GetDomains(ctx, feed)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve IOCs"})
+			return
+		}
+		for _, d := range domains {
+			iocsToProcess = append(iocsToProcess, iocWithFeed{value: d, feed: feed})
+		}
+	} else {
+		// Get all feeds and collect all domains with their feed
+		feeds, err := h.storage.ListFeeds(ctx)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list feeds"})
+			return
+		}
+
+		for _, f := range feeds {
+			feedDomains, err := h.storage.GetDomains(ctx, f)
+			if err != nil {
+				continue
+			}
+			for _, d := range feedDomains {
+				iocsToProcess = append(iocsToProcess, iocWithFeed{value: d, feed: f})
+			}
+		}
+	}
+
+	// Build response with IOC details
+	iocs := make([]gin.H, 0, len(iocsToProcess))
+	for _, iocData := range iocsToProcess {
+		// Try to get STIX ID and MISP event ID
+		stixID, _ := h.storage.GetDomainStixID(ctx, iocData.value)
+
+		// Try to get MISP event ID from storage
+		mispEventID, _ := h.storage.Get(ctx, "misp:domain:"+iocData.value)
+
+		ioc := gin.H{
+			"value": iocData.value,
+			"type":  "domain",
+			"feed":  iocData.feed,
+		}
+		if stixID != "" {
+			ioc["stix_id"] = stixID
+		}
+		if len(mispEventID) > 0 {
+			ioc["misp_event_id"] = string(mispEventID)
+		}
+
+		iocs = append(iocs, ioc)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"iocs":  iocs,
+		"count": len(iocs),
+	})
+}
+
+// DeleteIOC handles DELETE /api/ioc/:id
+func (h *IOCHandler) DeleteIOC(c *gin.Context) {
+	ctx := context.Background()
+	iocValue := c.Param("id")
+	feed := c.Query("feed")
+
+	if feed == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "feed parameter required"})
+		return
+	}
+
+	// Remove domain from feed
+	if err := h.storage.RemoveDomain(ctx, feed, iocValue); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove IOC"})
+		return
+	}
+
+	// Optionally delete STIX object
+	stixID, _ := h.storage.GetDomainStixID(ctx, iocValue)
+	if stixID != "" {
+		h.storage.DeleteSTIXObject(ctx, stixID)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "deleted",
+		"ioc":     iocValue,
+		"feed":    feed,
+	})
+}
+
+// UpdateIOC handles PUT /api/ioc/:id
+func (h *IOCHandler) UpdateIOC(c *gin.Context) {
+	ctx := context.Background()
+	oldValue := c.Param("id")
+
+	var req struct {
+		NewValue    string `json:"new_value"`
+		Feed        string `json:"feed" binding:"required"`
+		Category    string `json:"category"`
+		Comment     string `json:"comment"`
+		AccessLevel string `json:"access_level"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// If value is being changed, remove old and add new
+	if req.NewValue != "" && req.NewValue != oldValue {
+		// Remove old domain
+		if err := h.storage.RemoveDomain(ctx, req.Feed, oldValue); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove old IOC"})
+			return
+		}
+
+		// Add new domain
+		if err := h.storage.AddDomain(ctx, req.Feed, req.NewValue); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add new IOC"})
+			return
+		}
+
+		// Delete old STIX mapping
+		h.storage.DeleteSTIXObject(ctx, "stix:domain:"+oldValue)
+	}
+
+	// Update metadata if provided
+	if req.AccessLevel != "" {
+		h.storage.SetFeedMeta(ctx, req.Feed, "access_level", req.AccessLevel)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "updated",
+		"ioc":    req.NewValue,
+		"feed":   req.Feed,
+	})
+}

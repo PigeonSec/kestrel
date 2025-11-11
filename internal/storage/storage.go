@@ -20,6 +20,7 @@ type Storage interface {
 	AddDomain(ctx context.Context, feed, domain string) error
 	GetDomains(ctx context.Context, feed string) ([]string, error)
 	RemoveDomain(ctx context.Context, feed, domain string) error
+	ListFeeds(ctx context.Context) ([]string, error)
 
 	// Feed metadata
 	SetFeedMeta(ctx context.Context, feed, key, value string) error

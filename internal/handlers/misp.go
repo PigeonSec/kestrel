@@ -37,3 +37,9 @@ func (h *MISPHandler) GetEvent(c *gin.Context) {
 
 	c.Data(http.StatusOK, "application/json", data)
 }
+
+// GetAllEvents handles GET /misp/events
+func (h *MISPHandler) GetAllEvents(c *gin.Context) {
+	data := h.misp.GetAllEvents(c.Request.Context())
+	c.Data(http.StatusOK, "application/json", data)
+}

@@ -88,6 +88,16 @@ func (m *MemoryStorage) RemoveDomain(ctx context.Context, feed, domain string) e
 	return nil
 }
 
+func (m *MemoryStorage) ListFeeds(ctx context.Context) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	feeds := make([]string, 0, len(m.feeds))
+	for feed := range m.feeds {
+		feeds = append(feeds, feed)
+	}
+	return feeds, nil
+}
+
 func (m *MemoryStorage) SetFeedMeta(ctx context.Context, feed, key, value string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

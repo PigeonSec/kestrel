@@ -5,6 +5,10 @@ kestrel
 *.so
 *.dylib
 
+
+dist 
+node_modules 
+
 # Test binaries
 *.test
 *.out
