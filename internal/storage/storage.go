@@ -30,6 +30,16 @@ type Storage interface {
 	Get(ctx context.Context, key string) ([]byte, error)
 	Delete(ctx context.Context, key string) error
 
+	// STIX object storage
+	SetSTIXObject(ctx context.Context, stixID string, data []byte) error
+	GetSTIXObject(ctx context.Context, stixID string) ([]byte, error)
+	ListSTIXObjects(ctx context.Context) ([]string, error)
+	DeleteSTIXObject(ctx context.Context, stixID string) error
+
+	// STIX ID mapping (domain -> stix_id)
+	SetDomainStixID(ctx context.Context, domain, stixID string) error
+	GetDomainStixID(ctx context.Context, domain string) (string, error)
+
 	// Close the storage connection
 	Close() error
 }

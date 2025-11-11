@@ -7,20 +7,24 @@ import (
 
 // MemoryStorage is an in-memory implementation of Storage
 type MemoryStorage struct {
-	mu       sync.RWMutex
-	events   map[string][]byte
-	feeds    map[string]map[string]bool   // feed -> domain set
-	feedMeta map[string]map[string]string // feed -> metadata map
-	kvStore  map[string][]byte
+	mu            sync.RWMutex
+	events        map[string][]byte
+	feeds         map[string]map[string]bool   // feed -> domain set
+	feedMeta      map[string]map[string]string // feed -> metadata map
+	kvStore       map[string][]byte
+	stixObjects   map[string][]byte            // stix_id -> stix object JSON
+	domainStixIDs map[string]string            // domain -> stix_id mapping
 }
 
 // NewMemoryStorage creates a new in-memory storage
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		events:   make(map[string][]byte),
-		feeds:    make(map[string]map[string]bool),
-		feedMeta: make(map[string]map[string]string),
-		kvStore:  make(map[string][]byte),
+		events:        make(map[string][]byte),
+		feeds:         make(map[string]map[string]bool),
+		feedMeta:      make(map[string]map[string]string),
+		kvStore:       make(map[string][]byte),
+		stixObjects:   make(map[string][]byte),
+		domainStixIDs: make(map[string]string),
 	}
 }
 
@@ -133,4 +137,59 @@ func (m *MemoryStorage) Delete(ctx context.Context, key string) error {
 
 func (m *MemoryStorage) Close() error {
 	return nil
+}
+
+// STIX object storage methods
+
+func (m *MemoryStorage) SetSTIXObject(ctx context.Context, stixID string, data []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stixObjects[stixID] = data
+	return nil
+}
+
+func (m *MemoryStorage) GetSTIXObject(ctx context.Context, stixID string) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	data, ok := m.stixObjects[stixID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return data, nil
+}
+
+func (m *MemoryStorage) ListSTIXObjects(ctx context.Context) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	ids := make([]string, 0, len(m.stixObjects))
+	for id := range m.stixObjects {
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func (m *MemoryStorage) DeleteSTIXObject(ctx context.Context, stixID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.stixObjects, stixID)
+	return nil
+}
+
+// STIX ID mapping methods
+
+func (m *MemoryStorage) SetDomainStixID(ctx context.Context, domain, stixID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.domainStixIDs[domain] = stixID
+	return nil
+}
+
+func (m *MemoryStorage) GetDomainStixID(ctx context.Context, domain string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	stixID, ok := m.domainStixIDs[domain]
+	if !ok {
+		return "", ErrNotFound
+	}
+	return stixID, nil
 }

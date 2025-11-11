@@ -21,28 +21,33 @@ Lightweight, self-hosted IOC feed distribution engine. Serves structured MISP-co
 
 ## Overview
 
-Kestrel is a self-hosted threat intelligence distribution platform that makes sharing IOCs (Indicators of Compromise) simple and efficient. Whether you're running a security team, managing enterprise DNS filtering, or building custom threat feeds, Kestrel provides:
+Kestrel is a **fully compliant STIX 2.1, TAXII 2.1, and MISP-compatible** threat intelligence distribution platform. Built for security teams who need fast, reliable IOC sharing without complexity.
 
-- **MISP-compliant JSON feeds** for threat intelligence platforms
-- **TXT blocklists** for Pi-hole, AdGuard, firewalls, and DNS sinkholes
-- **Flexible storage** with in-memory caching and Redis/Valkey backends
-- **Domain validation** to ensure IOCs are active and reachable
-- **API key management** with SQLite persistence and optional external sync
-- **Simple deployment** as a single static Go binary
+**What Kestrel Provides:**
+- ✅ **TAXII 2.1 Server** - Full compliance with filtering, pagination, collections
+- ✅ **STIX 2.1 Indicators** - Standard threat intelligence format
+- ✅ **MISP Feed** - Direct MISP platform integration
+- ✅ **TXT Blocklists** - Pi-hole, AdGuard, DNS sinkhole compatible
+- ✅ **Domain Validation** - DNS and HTTP connectivity checks
+- ✅ **Flexible Storage** - In-memory or Redis/Valkey
+- ✅ **API Key Management** - Built-in with SQLite
+- ✅ **Single Binary** - Zero dependencies deployment
 
 ## Features
 
 - ⚡ **Blazing Fast** - Built with Go, Valkey/Redis, and in-memory caching
 - 🎯 **Fully Data-Driven** - Feeds created automatically via ingestion, no config files needed
-- 🛣️ **Dynamic Paths** - Access feeds at ANY URL structure - feed name extracted from path
+- 🔷 **100% STIX 2.1 Compliant** - 12+ object types (Indicator, Relationship, Sighting, ThreatActor, Malware, etc.)
+- 📡 **100% TAXII 2.1 Compliant** - Full server with collections, filtering, pagination
+- 📊 **Enhanced MISP Support** - Objects, Relationships, Sightings, Tags, Galaxies
+- 🎯 **Multiple IOC Types** - Domain, IPv4/IPv6, URL, Hash (MD5/SHA1/SHA256), Email
+- 🛣️ **Dynamic Feed Paths** - Access ANY URL structure - feed name extracted from path
 - 🔐 **Role-Based Access** - Admin-only ingestion, metadata-driven feed access control
 - 🧠 **Flexible Storage** - In-memory (dev/testing) or Valkey/Redis (production)
+- ✅ **IOC Validation** - DNS and HTTP connectivity checks
 - 🌐 **API Key Management** - Built-in generation with SQLite persistence
-- ✅ **Domain Validation** - DNS (A/AAAA/CNAME) and HTTP/HTTPS connectivity checks
-- 📊 **MISP Compliant** - Standard event format, manifest, and attributes
-- 📜 **Free & Paid Feeds** - Configurable per feed via ingestion metadata
 - 🐳 **Docker Ready** - Compose setup with Valkey included
-- 🧱 **Simple Deployment** - Single binary + Redis/Valkey + optional SQLite
+- 🧱 **Simple Deployment** - Single binary + optional Redis/Valkey + SQLite
 
 ## Use Cases
 
@@ -102,17 +107,50 @@ ADMIN_API_KEY=kestrel_xxx     # Admin key for IOC ingestion
 
 ## API Endpoints
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/healthz` | No | Health check |
-| `GET` | `/*any/path/feedname.txt` | Conditional | **Dynamic feed access** - Any path structure works! |
-| `POST` | `/api/ioc` | Admin | Submit IOC (creates feeds automatically) |
-| `GET` | `/misp/manifest.json` | Yes | MISP manifest |
-| `GET` | `/misp/events/:id.json` | Yes | MISP event details |
-| `POST` | `/api/admin/generate-key` | Admin | Generate new API key |
-| `POST` | `/api/admin/accounts` | Admin | Add account |
-| `GET` | `/api/admin/accounts/:key` | Admin | Get account details |
-| `DELETE` | `/api/admin/accounts/:key` | Admin | Remove account |
+### IOC Ingestion (Admin Only)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/ioc` | Submit IOC - creates feeds automatically |
+
+### TAXII 2.1 (Standard Threat Intel Distribution)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/taxii2/` | Discovery endpoint |
+| `GET` | `/taxii2/api1/` | API root information |
+| `GET` | `/taxii2/api1/collections/` | List collections |
+| `GET` | `/taxii2/api1/collections/:id/` | Get collection info |
+| `GET` | `/taxii2/api1/collections/:id/objects/` | Get STIX objects (with filtering) |
+| `GET` | `/taxii2/api1/collections/:id/manifest/` | Get object manifest |
+| `GET` | `/taxii2/api1/collections/:id/objects/:object_id/` | Get specific object |
+
+### STIX 2.1 (Direct Access)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/stix/bundle` | Get all indicators in STIX bundle |
+| `GET` | `/stix/indicators` | List all indicator IDs |
+| `GET` | `/stix/indicators/:id` | Get specific indicator |
+| `GET` | `/stix/indicators/:id/bundle` | Get indicator as bundle |
+
+### MISP (Compatible Feed)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/misp/manifest.json` | Event manifest |
+| `GET` | `/misp/events/:id.json` | Specific event |
+
+### Dynamic Feeds (Pi-hole, AdGuard, etc.)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/*any/path/feedname.txt` | Domain list (any URL structure works!) |
+
+### Admin (Key Management)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/admin/generate-key` | Generate new API key |
+| `POST` | `/api/admin/accounts` | Create account |
+| `GET` | `/api/admin/accounts/:key` | Get account details |
+| `DELETE` | `/api/admin/accounts/:key` | Delete account |
+
+**Full API Documentation**: See [API.md](API.md)
 
 **Dynamic Feed Paths**: Feed name is extracted from the last URL segment. All paths work:
 ```
@@ -179,6 +217,31 @@ curl http://localhost:8080/misp/manifest.json \
 # Get specific event
 curl http://localhost:8080/misp/events/<event-id>.json \
   -H "X-API-Key: kestrel_user_key"
+```
+
+### Consume via TAXII 2.1
+```bash
+# TAXII discovery
+curl http://localhost:8080/taxii2/
+
+# Get collection objects (with STIX indicators)
+curl -H "X-API-Key: kestrel_user_key" \
+  http://localhost:8080/taxii2/api1/collections/kestrel-indicators/objects/
+
+# Get manifest (object metadata)
+curl -H "X-API-Key: kestrel_user_key" \
+  http://localhost:8080/taxii2/api1/collections/kestrel-indicators/manifest/
+```
+
+### Consume via STIX 2.1 (Direct)
+```bash
+# Get full STIX bundle
+curl -H "X-API-Key: kestrel_user_key" \
+  http://localhost:8080/stix/bundle
+
+# List all indicators
+curl -H "X-API-Key: kestrel_user_key" \
+  http://localhost:8080/stix/indicators
 ```
 
 ### Dynamic Path Examples
@@ -268,17 +331,23 @@ Any feed not in `FREE_FEEDS` requires API key authentication.
 ## Testing
 
 ```bash
-# Basic compliance tests
+# TAXII 2.1 compliance test
+./test/test_taxii.sh
+
+# STIX 2.1 compliance test
+./test/test_stix.sh
+
+# MISP compliance test
 ./test/test_kestrel.sh
 
 # Generic feeds test
 ./test/test_feeds.sh
-
-# Authenticated API tests
-KESTREL_API_KEY=your-key ./test/test_with_auth_simple.sh
 ```
 
-See [TESTING.md](TESTING.md) for comprehensive test documentation and MISP compliance verification.
+**Documentation**:
+- [API.md](API.md) - Complete API reference
+- [COMPLIANCE_STATUS.md](COMPLIANCE_STATUS.md) - Standards compliance status
+- [STIX_IMPLEMENTATION.md](STIX_IMPLEMENTATION.md) - STIX 2.1 implementation details
 
 ## Project Structure
 

@@ -91,3 +91,47 @@ func (v *ValkeyStorage) Delete(ctx context.Context, key string) error {
 func (v *ValkeyStorage) Close() error {
 	return v.client.Close()
 }
+
+// STIX object storage methods
+
+func (v *ValkeyStorage) SetSTIXObject(ctx context.Context, stixID string, data []byte) error {
+	pipe := v.client.Pipeline()
+	pipe.Set(ctx, "stix:object:"+stixID, data, 0)
+	pipe.LPush(ctx, "stix:objects", stixID)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+func (v *ValkeyStorage) GetSTIXObject(ctx context.Context, stixID string) ([]byte, error) {
+	data, err := v.client.Get(ctx, "stix:object:"+stixID).Bytes()
+	if err == redis.Nil {
+		return nil, ErrNotFound
+	}
+	return data, err
+}
+
+func (v *ValkeyStorage) ListSTIXObjects(ctx context.Context) ([]string, error) {
+	return v.client.LRange(ctx, "stix:objects", 0, -1).Result()
+}
+
+func (v *ValkeyStorage) DeleteSTIXObject(ctx context.Context, stixID string) error {
+	pipe := v.client.Pipeline()
+	pipe.Del(ctx, "stix:object:"+stixID)
+	pipe.LRem(ctx, "stix:objects", 0, stixID)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// STIX ID mapping methods
+
+func (v *ValkeyStorage) SetDomainStixID(ctx context.Context, domain, stixID string) error {
+	return v.client.Set(ctx, "stix:domain:"+domain, stixID, 0).Err()
+}
+
+func (v *ValkeyStorage) GetDomainStixID(ctx context.Context, domain string) (string, error) {
+	stixID, err := v.client.Get(ctx, "stix:domain:"+domain).Result()
+	if err == redis.Nil {
+		return "", ErrNotFound
+	}
+	return stixID, err
+}
